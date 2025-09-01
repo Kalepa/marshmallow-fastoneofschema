@@ -26,4 +26,4 @@ coverage.xml
 .mypy_cache
 .ruff_cache
 
-.python-version
+__pycache__/

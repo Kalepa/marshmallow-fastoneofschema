@@ -1,22 +1,12 @@
 =======================
-marshmallow-oneofschema
+marshmallow-FastOneOfSchema
 =======================
-
-|pypi| |build-status| |marshmallow-support|
-
-.. |pypi| image:: https://badgen.net/pypi/v/marshmallow-oneofschema
-    :target: https://pypi.org/project/marshmallow-oneofschema/
-    :alt: PyPI package
-
-.. |build-status| image:: https://github.com/marshmallow-code/marshmallow-oneofschema/actions/workflows/build-release.yml/badge.svg
-    :target: https://github.com/marshmallow-code/flask-marshmallow/actions/workflows/build-release.yml
-    :alt: Build status
 
 .. |marshmallow-support| image:: https://badgen.net/badge/marshmallow/3,4?list=1
     :target: https://marshmallow.readthedocs.io/en/latest/upgrading.html
     :alt: marshmallow 3|4 compatible
 
-An extension to marshmallow to support schema (de)multiplexing.
+An extension to marshmallow to support fast schema (de)multiplexing.
 
 marshmallow is a fantastic library for serialization and deserialization of data.
 For more on that project see its `GitHub <https://github.com/marshmallow-code/marshmallow>`_
@@ -31,9 +21,19 @@ schema and adds an extra field with name of object type. Deserialization is reve
 Installing
 ----------
 
-::
+This fork is designed to be a drop‑in replacement for ``marshmallow-oneofschema``.
 
-    $ pip install marshmallow-oneofschema
+Using uv:
+
+    $ uv add marshmallow-fastoneofschema
+
+Using poetry::
+
+    $ poetry add marshmallow-fastoneofschema
+
+pip::
+
+    $ pip install marshmallow-fastoneofschema
 
 Example
 -------
@@ -45,7 +45,7 @@ Once setup the schema should act like any other schema. If it does not then plea
 
     import marshmallow
     import marshmallow.fields
-    from marshmallow_oneofschema import OneOfSchema
+    from marshmallow_fastoneofschema import OneOfSchema
 
 
     class Foo:
@@ -128,4 +128,45 @@ You can use resulting schema everywhere marshmallow.Schema can be used, e.g.
 License
 -------
 
-MIT licensed. See the bundled `LICENSE <https://github.com/marshmallow-code/marshmallow-oneofschema/blob/master/LICENSE>`_ file for more details.
+MIT licensed. See the bundled `LICENSE <https://github.com/Kalepa/marshmallow-fastoneofschema/blob/main/LICENSE>`_ file for more details.
+
+Performance & Compatibility Notes
+---------------------------------
+
+- This fork preserves the public API and error shapes of the upstream package.
+- Optimizations avoid unnecessary copies when ``type_field_remove`` is ``False`` and reduce overhead for ``many=True`` in default configurations.
+- Aggressive instance caching can be disabled via ``FOO_DISABLE_AGGRESSIVE_MODE=1`` if needed.
+- Supported Python versions: 3.11+.
+
+DeepFriedMarshmallow Plugin
+---------------------------
+
+This fork ships a DFM plugin that can enable JIT inlining for ``Nested(OneOfSchema)`` fields.
+
+- Discovery: via entry point group ``deepfriedmarshmallow.plugins`` or env ``DFM_PLUGINS``.
+- Initial scope: Only engages when ``get_data_type``/``get_obj_type`` are default and all ``type_schemas`` keys are strings.
+- Fallback: If conditions aren't met, DFM falls back to its standard generation.
+
+Per‑Schema Controls & Flags
+---------------------------
+
+Migration
+---------
+
+Basic usage stays the same (plug‑and‑play). For projects that want to migrate explicitly to the new names:
+
+- Replace dependency ``marshmallow-oneofschema`` with this fork.
+- Optionally switch imports to the new package/class names:
+  - ``from marshmallow_fastoneofschema import FastOneOfSchema``
+  - Or keep ``from marshmallow_oneofschema import OneOfSchema`` (alias provided).
+  - Existing code continues to work; new names are recommended for clarity.
+
+- Env flags:
+  - ``FOO_DISABLE_AGGRESSIVE_MODE=1``: disable instance caching.
+  - ``FOO_CONTEXT_ISOLATION=1``: enable per-task schema instance caching (ContextVars).
+- Per-schema overrides via ``class Meta: fastoneof = {...}``:
+  - ``aggressive_mode: bool``
+  - ``context_isolation: bool``
+- Per-request overrides via ContextVars (advanced):
+  - ``OneOfSchema._foo_aggressive_ctx.set(True|False)``
+  - ``OneOfSchema._foo_isolation_ctx.set(True|False)``

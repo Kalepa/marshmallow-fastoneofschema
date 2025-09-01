@@ -1,8 +1,7 @@
 import marshmallow as m
 import marshmallow.fields as f
 import pytest
-
-from marshmallow_oneofschema import OneOfSchema
+from marshmallow_fastoneofschema import OneOfSchema
 
 REQUIRED_ERROR = "Missing data for required field."
 
@@ -54,11 +53,7 @@ class Baz:
         return f"<Bar value1={self.value1} value2={self.value2}>"
 
     def __eq__(self, other):
-        return (
-            isinstance(other, self.__class__)
-            and self.value1 == other.value1
-            and self.value2 == other.value2
-        )
+        return isinstance(other, self.__class__) and self.value1 == other.value1 and self.value2 == other.value2
 
 
 class BazSchema(m.Schema):
@@ -130,9 +125,7 @@ class TestOneOfSchema:
         assert Foo("hello world!"), Bar(123) == result
 
     def test_load_many_in_constructor(self):
-        result = MySchema(many=True).load(
-            [{"type": "Foo", "value": "hello world!"}, {"type": "Bar", "value": 123}]
-        )
+        result = MySchema(many=True).load([{"type": "Foo", "value": "hello world!"}, {"type": "Bar", "value": 123}])
         assert Foo("hello world!"), Bar(123) == result
 
     def test_load_removes_type_field(self):
@@ -208,9 +201,7 @@ class TestOneOfSchema:
         with pytest.raises(m.ValidationError) as exc_info:
             MySchema().load({"type": "Foo"})
 
-        assert {
-            "value": ["Missing data for required field."]
-        } == exc_info.value.messages
+        assert {"value": ["Missing data for required field."]} == exc_info.value.messages
 
     def test_load_many_errors_are_indexed_by_object_position(self):
         with pytest.raises(m.ValidationError) as exc_info:
@@ -238,9 +229,7 @@ class TestOneOfSchema:
         result = MySchema().load({"type": "Foo"}, partial=("value", "value2"))
         assert Foo() == result
 
-        result = MySchema().load(
-            {"type": "Baz", "value1": 123}, partial=("value", "value2")
-        )
+        result = MySchema().load({"type": "Baz", "value1": 123}, partial=("value", "value2"))
         assert Baz(value1=123) == result
 
     def test_load_partial_any(self):
@@ -257,9 +246,7 @@ class TestOneOfSchema:
         result = MySchema(partial=("value", "value2")).load({"type": "Foo"})
         assert Foo() == result
 
-        result = MySchema(partial=("value", "value2")).load(
-            {"type": "Baz", "value1": 123}
-        )
+        result = MySchema(partial=("value", "value2")).load({"type": "Baz", "value1": 123})
         assert Baz(value1=123) == result
 
     def test_load_partial_any_in_constructor(self):
@@ -278,9 +265,7 @@ class TestOneOfSchema:
         assert {"value": [REQUIRED_ERROR]} == MySchema().validate({"type": "Bar"})
 
     def test_validate_many(self):
-        errors = MySchema().validate(
-            [{"type": "Foo", "value": "123"}, {"type": "Bar", "value": 123}], many=True
-        )
+        errors = MySchema().validate([{"type": "Foo", "value": "123"}, {"type": "Bar", "value": 123}], many=True)
         assert {} == errors
 
         errors = MySchema().validate([{"value": "123"}, {"type": "Bar"}], many=True)
@@ -290,9 +275,7 @@ class TestOneOfSchema:
         assert {0: {"type": [REQUIRED_ERROR]}, 1: {"value": [REQUIRED_ERROR]}} == errors
 
     def test_validate_many_in_constructor(self):
-        errors = MySchema(many=True).validate(
-            [{"type": "Foo", "value": "123"}, {"type": "Bar", "value": 123}]
-        )
+        errors = MySchema(many=True).validate([{"type": "Foo", "value": "123"}, {"type": "Bar", "value": 123}])
         assert {} == errors
 
         errors = MySchema(many=True).validate([{"value": "123"}, {"type": "Bar"}])
@@ -302,9 +285,7 @@ class TestOneOfSchema:
         errors = MySchema().validate({"type": "Foo"}, partial=("value", "value2"))
         assert {} == errors
 
-        errors = MySchema().validate(
-            {"type": "Baz", "value1": 123}, partial=("value", "value2")
-        )
+        errors = MySchema().validate({"type": "Baz", "value1": 123}, partial=("value", "value2"))
         assert {} == errors
 
     def test_validate_partial_any(self):
@@ -321,9 +302,7 @@ class TestOneOfSchema:
         errors = MySchema(partial=("value", "value2")).validate({"type": "Foo"})
         assert {} == errors
 
-        errors = MySchema(partial=("value", "value2")).validate(
-            {"type": "Baz", "value1": 123}
-        )
+        errors = MySchema(partial=("value", "value2")).validate({"type": "Baz", "value1": 123})
         assert {} == errors
 
     def test_validate_partial_any_in_constructor(self):
@@ -352,9 +331,7 @@ class TestOneOfSchema:
         assert {"items": [Foo("hello world!"), Bar(123)]} == result
 
         with pytest.raises(m.ValidationError) as exc_info:
-            schema.load(
-                {"items": [{"type": "Foo", "value": "hello world!"}, {"value": 123}]}
-            )
+            schema.load({"items": [{"type": "Foo", "value": "hello world!"}, {"value": 123}]})
         assert {"items": {1: {"type": [REQUIRED_ERROR]}}} == exc_info.value.messages
 
     def test_using_as_nested_schema_with_many(self):
@@ -373,9 +350,7 @@ class TestOneOfSchema:
         assert {"items": [Foo("hello world!"), Bar(123)]} == result
 
         with pytest.raises(m.ValidationError) as exc_info:
-            schema.load(
-                {"items": [{"type": "Foo", "value": "hello world!"}, {"value": 123}]}
-            )
+            schema.load({"items": [{"type": "Foo", "value": "hello world!"}, {"value": 123}]})
         assert {"items": {1: {"type": [REQUIRED_ERROR]}}} == exc_info.value.messages
 
     def test_using_custom_type_names(self):

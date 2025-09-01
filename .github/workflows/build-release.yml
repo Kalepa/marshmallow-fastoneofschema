@@ -1,7 +1,7 @@
 name: build
 on:
   push:
-    branches: ["main", "*.x-line"]
+    branches: ["main"]
     tags: ["*"]
   pull_request:
 
@@ -13,11 +13,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: "3.9", python: "3.9", tox: py39-marshmallow3 }
           - { name: "3.13", python: "3.13", tox: py313-marshmallow3 }
-          - { name: "3.9", python: "3.9", tox: py39-marshmallow4 }
           - { name: "3.13", python: "3.13", tox: py313-marshmallow4 }
-          - { name: "lowest", python: "3.9", tox: py39-lowest }
+          - { name: "3.11", python: "3.11", tox: py311-marshmallow3 }
+          - { name: "3.11", python: "3.11", tox: py311-marshmallow4 }
+          - { name: "lowest", python: "3.11", tox: py311-lowest }
           - { name: "dev", python: "3.13", tox: py313-marshmallowdev }
     steps:
       - uses: actions/checkout@v4.0.0
