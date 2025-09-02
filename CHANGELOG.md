@@ -9,6 +9,7 @@
 
 ### Fixed
 - Do not overwrite a child-provided `type` field during `dump`.
+- Allow `@pre_load` hooks to mutate input when the type field is hidden.
 
 ### Tests
 - Aded generic backward-compatibility tests.

@@ -1,7 +1,7 @@
 from enum import Enum
 
 import pytest
-from marshmallow import EXCLUDE, Schema, ValidationError, fields
+from marshmallow import EXCLUDE, Schema, ValidationError, fields, pre_load
 
 from marshmallow_fastoneofschema import OneOfSchema
 
@@ -165,3 +165,23 @@ def test_dump_does_not_override_child_type_field():
     obj = SimpleObj(1, 2)
     out = OneOfWithChildType().dump(obj)
     assert out == {"type": "CUSTOM", "a": 1}
+
+
+class SanitizingSchema(Schema):
+    text = fields.String(required=True)
+
+    @pre_load
+    def sanitize(self, data, **kwargs):
+        data["text"] = str(data.get("text", "")).replace("ß", "ss")
+        return data
+
+
+class SanitizingOneOf(OneOfSchema):
+    # Default type_field_remove=True ensures wrapper is used
+    type_schemas = {"T": SanitizingSchema}
+
+
+def test_preload_mutates_input_mapping_supported():
+    s = SanitizingOneOf()
+    out = s.load({"type": "T", "text": "große"})
+    assert out == {"text": "grosse"}

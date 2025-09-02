@@ -7,10 +7,13 @@ from contextvars import ContextVar
 from marshmallow import Schema, ValidationError
 
 
-class _HidingKeyDict(typing.Mapping[str, typing.Any]):
+class _HidingKeyDict(typing.MutableMapping[str, typing.Any]):
     __slots__ = ("_data", "_hide")
 
-    def __init__(self, data: typing.Mapping[str, typing.Any], hide: str):
+    _data: typing.MutableMapping[str, typing.Any]
+    _hide: str
+
+    def __init__(self, data: typing.MutableMapping[str, typing.Any], hide: str):
         self._data = data
         self._hide = hide
 
@@ -49,6 +52,26 @@ class _HidingKeyDict(typing.Mapping[str, typing.Any]):
         for k, v in self._data.items():
             if k != self._hide:
                 yield v
+
+    # Mutable operations
+    def __setitem__(self, key: str, value: typing.Any) -> None:  # noqa: D401
+        # Allow write-through even for hidden key to preserve caller expectations
+        self._data[key] = value
+
+    def __delitem__(self, key: str) -> None:  # noqa: D401
+        # Deleting hidden key is allowed on underlying data
+        del self._data[key]
+
+    def clear(self) -> None:  # noqa: D401
+        # Remove everything, including hidden key if present
+        self._data.clear()
+
+    def update(self, *args, **kwargs) -> None:  # noqa: D401
+        other = dict(*args, **kwargs)
+        self._data.update(other)
+
+    def setdefault(self, key: str, default=None):  # noqa: D401
+        return self._data.setdefault(key, default)
 
 
 class OneOfSchema(Schema):
