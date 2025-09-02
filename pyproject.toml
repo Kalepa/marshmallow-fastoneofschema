@@ -1,6 +1,6 @@
 [project]
 name = "marshmallow-fastoneofschema"
-version = "2025.9.2.1.dev4"
+version = "2025.9.2.1.dev5"
 description = "fast marshmallow multiplexing schema"
 readme = "README.rst"
 license = { file = "LICENSE" }
