@@ -56,15 +56,29 @@ class OneOfSchema(Schema):
     type_field_remove = True
     type_schemas: typing.Mapping[str, type[Schema] | Schema] = {}
 
-    _foo_disable_aggressive = os.getenv("FOO_DISABLE_AGGRESSIVE_MODE", "0") in ("1", "true", "True")
-    _foo_context_isolation_env = os.getenv("FOO_CONTEXT_ISOLATION", "0") in ("1", "true", "True")
+    _foo_disable_aggressive = os.getenv("FOO_DISABLE_AGGRESSIVE_MODE", "0") in (
+        "1",
+        "true",
+        "True",
+    )
+    _foo_context_isolation_env = os.getenv("FOO_CONTEXT_ISOLATION", "0") in (
+        "1",
+        "true",
+        "True",
+    )
 
-    _foo_dump_cache = None  # type: ignore[var-annotated]
-    _foo_schema_instance_cache = None  # type: ignore[var-annotated]
+    _foo_dump_cache: dict[type, tuple[str, Schema]] | None = None
+    _foo_schema_instance_cache: dict[typing.Any, Schema] | None = None
 
-    _foo_aggressive_ctx: ContextVar[typing.Optional[bool]] = ContextVar("foo_aggressive_mode", default=None)
-    _foo_isolation_ctx: ContextVar[typing.Optional[bool]] = ContextVar("foo_context_isolation", default=None)
-    _foo_ctx_instance_caches: ContextVar[typing.Optional[dict]] = ContextVar("foo_instance_caches", default=None)
+    _foo_aggressive_ctx: ContextVar[bool | None] = ContextVar(
+        "foo_aggressive_mode", default=None
+    )
+    _foo_isolation_ctx: ContextVar[bool | None] = ContextVar(
+        "foo_context_isolation", default=None
+    )
+    _foo_ctx_instance_caches: ContextVar[dict | None] = ContextVar(
+        "foo_instance_caches", default=None
+    )
     _foo_keepalive_limit = 16
 
     def __init__(self, *args, **kwargs):
@@ -74,8 +88,10 @@ class OneOfSchema(Schema):
         if opts is None:
             meta = getattr(self.__class__, "Meta", None)
             opts = getattr(meta, "fastoneof", {}) if meta is not None else {}
-        self._foo_aggressive_override: typing.Optional[bool] = opts.get("aggressive_mode") if isinstance(opts, dict) else None
-        self._foo_context_isolation_override: typing.Optional[bool] = (
+        self._foo_aggressive_override: bool | None = (
+            opts.get("aggressive_mode") if isinstance(opts, dict) else None
+        )
+        self._foo_context_isolation_override: bool | None = (
             opts.get("context_isolation") if isinstance(opts, dict) else None
         )
 
@@ -141,7 +157,9 @@ class OneOfSchema(Schema):
         if not many:
             result = result_data = self._dump(obj, **kwargs)
         else:
-            fast_path = getattr(self.get_obj_type, "__func__", None) is OneOfSchema.get_obj_type
+            fast_path = (
+                getattr(self.get_obj_type, "__func__", None) is OneOfSchema.get_obj_type
+            )
             if not fast_path:
                 for idx, o in enumerate(obj):
                     try:
@@ -152,6 +170,7 @@ class OneOfSchema(Schema):
                         result_data.append(error.valid_data)
             else:
                 from collections import defaultdict
+
                 groups = defaultdict(list)
                 for idx, o in enumerate(obj):
                     tval = self.get_obj_type(o)
@@ -160,14 +179,20 @@ class OneOfSchema(Schema):
                 for tval, items in groups.items():
                     if tval is None:
                         for idx, _ in items:
-                            result_errors[idx] = {"_schema": f"Unknown object class: {obj.__class__.__name__}"}
+                            result_errors[idx] = {
+                                "_schema": f"Unknown object class: {obj.__class__.__name__}"
+                            }
                             results[idx] = None
                         continue
                     key = self._foo_resolve_type_key(tval)
-                    type_schema = self.type_schemas.get(key) if key is not None else None
+                    type_schema = (
+                        self.type_schemas.get(key) if key is not None else None
+                    )
                     if not type_schema:
                         for idx, _ in items:
-                            result_errors[idx] = {"_schema": f"Unsupported object type: {tval}"}
+                            result_errors[idx] = {
+                                "_schema": f"Unsupported object type: {tval}"
+                            }
                             results[idx] = None
                         continue
                     if isinstance(type_schema, Schema):
@@ -222,7 +247,11 @@ class OneOfSchema(Schema):
                                 else:
                                     # Fallback: validate individually to recover per-item outcome
                                     try:
-                                        results[i] = schema.load(items[pos], many=False, partial=partial, unknown=unknown, **kwargs)
+                                        results[i] = schema.load(
+                                            items[pos],
+                                            many=False,
+                                            **kwargs,
+                                        )
                                     except ValidationError as ee:
                                         result_errors[i] = ee.messages
                                         results[i] = getattr(ee, "valid_data", None)
@@ -237,7 +266,9 @@ class OneOfSchema(Schema):
             raise exc
 
     def _dump(self, obj, *, update_fields=True, **kwargs):
-        default_getter = getattr(self.get_obj_type, "__func__", None) is OneOfSchema.get_obj_type
+        default_getter = (
+            getattr(self.get_obj_type, "__func__", None) is OneOfSchema.get_obj_type
+        )
         if default_getter:
             if self._foo_dump_cache is None:
                 self._foo_dump_cache = {}
@@ -270,7 +301,9 @@ class OneOfSchema(Schema):
         else:
             obj_type = self.get_obj_type(obj)
             if obj_type is None:
-                return None, {"_schema": f"Unknown object class: {obj.__class__.__name__}"}
+                return None, {
+                    "_schema": f"Unknown object class: {obj.__class__.__name__}"
+                }
             key = self._foo_resolve_type_key(obj_type)
             type_schema = self.type_schemas.get(key) if key is not None else None
             if not type_schema:
@@ -321,13 +354,21 @@ class OneOfSchema(Schema):
                 result_data.append(error.valid_data)
         else:
             from collections import defaultdict
+
             groups = defaultdict(list)
             results = [None] * len(data)
-            default_getter = getattr(self.get_data_type, "__func__", None) is OneOfSchema.get_data_type
+            default_getter = (
+                getattr(self.get_data_type, "__func__", None)
+                is OneOfSchema.get_data_type
+            )
             for idx, item in enumerate(data):
                 if default_getter:
                     tval = item.get(self.type_field)
-                    if self.type_field_remove and tval is not None and self.type_field in item:
+                    if (
+                        self.type_field_remove
+                        and tval is not None
+                        and self.type_field in item
+                    ):
                         data_for_schema = _HidingKeyDict(item, self.type_field)
                     else:
                         data_for_schema = item
@@ -348,19 +389,25 @@ class OneOfSchema(Schema):
             for tval, items in groups.items():
                 if tval is None:
                     for idx, _ in items:
-                        result_errors[idx] = {self.type_field: ["Missing data for required field."]}
+                        result_errors[idx] = {
+                            self.type_field: ["Missing data for required field."]
+                        }
                         results[idx] = None
                     continue
                 try:
                     type_schema = self.type_schemas.get(tval)
                 except TypeError:
                     for idx, _ in items:
-                        result_errors[idx] = {self.type_field: [f"Invalid value: {tval}"]}
+                        result_errors[idx] = {
+                            self.type_field: [f"Invalid value: {tval}"]
+                        }
                         results[idx] = None
                     continue
                 if not type_schema:
                     for idx, _ in items:
-                        result_errors[idx] = {self.type_field: [f"Unsupported value: {tval}"]}
+                        result_errors[idx] = {
+                            self.type_field: [f"Unsupported value: {tval}"]
+                        }
                         results[idx] = None
                     continue
                 if isinstance(type_schema, Schema):
@@ -393,8 +440,10 @@ class OneOfSchema(Schema):
                     batch.append(prepared)
                     indices.append(idx)
                 try:
-                    loaded = schema.load(batch, many=True, partial=partial, unknown=unknown, **kwargs)
-                    for i, val in zip(indices, loaded):
+                    loaded = schema.load(
+                        batch, many=True, partial=partial, unknown=unknown, **kwargs
+                    )
+                    for i, val in zip(indices, loaded, strict=False):
                         results[i] = val
                 except ValidationError as e:
                     msgs = e.messages
@@ -424,10 +473,16 @@ class OneOfSchema(Schema):
     def _load(self, data, *, partial=None, unknown=None, **kwargs):
         if not isinstance(data, dict):
             raise ValidationError({"_schema": f"Invalid data type: {data}"})
-        default_getter = getattr(self.get_data_type, "__func__", None) is OneOfSchema.get_data_type
+        default_getter = (
+            getattr(self.get_data_type, "__func__", None) is OneOfSchema.get_data_type
+        )
         if default_getter:
             data_type = data.get(self.type_field)
-            if self.type_field_remove and data_type is not None and self.type_field in data:
+            if (
+                self.type_field_remove
+                and data_type is not None
+                and self.type_field in data
+            ):
                 data = _HidingKeyDict(data, self.type_field)
             unknown = unknown or self.unknown
         else:
@@ -435,13 +490,19 @@ class OneOfSchema(Schema):
             unknown = unknown or self.unknown
             data_type = self.get_data_type(data)
         if data_type is None:
-            raise ValidationError({self.type_field: ["Missing data for required field."]})
+            raise ValidationError(
+                {self.type_field: ["Missing data for required field."]}
+            )
         try:
             type_schema = self.type_schemas.get(data_type)
         except TypeError as error:
-            raise ValidationError({self.type_field: [f"Invalid value: {data_type}"]}) from error
+            raise ValidationError(
+                {self.type_field: [f"Invalid value: {data_type}"]}
+            ) from error
         if not type_schema:
-            raise ValidationError({self.type_field: [f"Unsupported value: {data_type}"]})
+            raise ValidationError(
+                {self.type_field: [f"Unsupported value: {data_type}"]}
+            )
         if isinstance(type_schema, Schema):
             schema = type_schema
         else:
@@ -482,7 +543,7 @@ class OneOfSchema(Schema):
         lst = getattr(self, "_foo_keepalive", None)
         if lst is None:
             lst = []
-            setattr(self, "_foo_keepalive", lst)
+            self._foo_keepalive = lst
         lst.append(obj)
         if len(lst) > self._foo_keepalive_limit:
             del lst[0]

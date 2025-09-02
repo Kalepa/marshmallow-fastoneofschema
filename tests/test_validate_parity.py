@@ -1,5 +1,5 @@
-import pytest
-from marshmallow import Schema, ValidationError, fields
+from marshmallow import Schema, fields
+
 from marshmallow_fastoneofschema import OneOfSchema
 
 

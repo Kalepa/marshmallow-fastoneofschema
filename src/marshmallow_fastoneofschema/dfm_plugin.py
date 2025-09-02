@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-from typing import Optional, Any
-
 
 def dfm_register(registry) -> None:  # pragma: no cover - registration side effect
     try:
-        from marshmallow import fields, Schema, ValidationError  # noqa: F401
+        from marshmallow import Schema, ValidationError, fields  # noqa: F401
+
         from .one_of_schema import OneOfSchema, _HidingKeyDict  # noqa: F401
     except Exception:
         return
 
-    def factory(field_obj, context) -> Optional[str | tuple]:
+    def factory(field_obj, context) -> str | tuple | None:
         try:
             from marshmallow import fields  # local import for safety
 
@@ -43,7 +42,13 @@ def dfm_register(registry) -> None:  # pragma: no cover - registration side effe
         context.namespace[dispatch_var] = dispatch_items
 
         if context.is_serializing:
-            def _inline_serialize(value, _schema_ref=schema_var, _parent_ref=parent_var, _dispatch_ref=dispatch_var):  # type: ignore[no-redef]
+
+            def _inline_serialize(
+                value,
+                _schema_ref=schema_var,
+                _parent_ref=parent_var,
+                _dispatch_ref=dispatch_var,
+            ):
                 schema_obj = context.namespace[_schema_ref]
                 parent_obj = context.namespace[_parent_ref]
                 if value is None:
@@ -65,7 +70,10 @@ def dfm_register(registry) -> None:  # pragma: no cover - registration side effe
 
             context.namespace[func_name] = _inline_serialize
         else:
-            def _inline_deserialize(value, _schema_ref=schema_var, _cache_ref=cache_var):  # type: ignore[no-redef]
+
+            def _inline_deserialize(
+                value, _schema_ref=schema_var, _cache_ref=cache_var
+            ):
                 schema_obj: OneOfSchema = context.namespace[_schema_ref]
                 local_cache: dict = context.namespace[_cache_ref]
                 if value is None:
@@ -73,7 +81,10 @@ def dfm_register(registry) -> None:  # pragma: no cover - registration side effe
 
                 type_field = schema_obj.type_field
                 remove = schema_obj.type_field_remove
-                default_getter = getattr(schema_obj.get_data_type, "__func__", None) is OneOfSchema.get_data_type
+                default_getter = (
+                    getattr(schema_obj.get_data_type, "__func__", None)
+                    is OneOfSchema.get_data_type
+                )
 
                 def _resolve_tv(obj):
                     try:
@@ -81,8 +92,8 @@ def dfm_register(registry) -> None:  # pragma: no cover - registration side effe
                             tv = obj.get(type_field)
                         else:
                             tv = schema_obj.get_data_type(dict(obj) if remove else obj)
-                    except Exception:
-                        raise ValueError("hook failure")
+                    except Exception as err:
+                        raise ValueError("hook failure") from err
                     return tv
 
                 def _resolve_schema(tv):
@@ -91,8 +102,8 @@ def dfm_register(registry) -> None:  # pragma: no cover - registration side effe
                         return inst
                     try:
                         sub = schema_obj.type_schemas.get(tv)
-                    except TypeError:
-                        raise ValueError("unhashable type key")
+                    except TypeError as err:
+                        raise ValueError("unhashable type key") from err
                     if not sub:
                         raise ValueError("unsupported type")
                     if isinstance(sub, Schema):

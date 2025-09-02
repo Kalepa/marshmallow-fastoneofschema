@@ -2,6 +2,7 @@ import asyncio
 
 import pytest
 from marshmallow import Schema, fields, post_load
+
 from marshmallow_fastoneofschema import OneOfSchema
 
 
@@ -46,7 +47,9 @@ def test_context_isolation_enabled_creates_distinct_instances():
     assert ra[0] != rb[0]
 
 
-@pytest.mark.skip(reason="No shared-instance guarantee without isolation; races may create separate instances.")
+@pytest.mark.skip(
+    reason="No shared-instance guarantee without isolation; races may create separate instances."
+)
 def test_context_isolation_disabled_shares_instances():
     s = IsoOff()
 

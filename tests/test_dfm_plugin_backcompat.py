@@ -3,6 +3,7 @@ import os
 
 import pytest
 from marshmallow import Schema, ValidationError, fields, post_load
+
 from marshmallow_fastoneofschema import OneOfSchema
 
 # Skip this test module entirely if DeepFriedMarshmallow is unavailable

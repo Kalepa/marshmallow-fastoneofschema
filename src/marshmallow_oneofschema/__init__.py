@@ -11,5 +11,6 @@ try:
 except Exception:
     pass
 
-from marshmallow_fastoneofschema.one_of_schema import OneOfSchema  # noqa: F401
+__all__ = ["OneOfSchema", "FastOneOfSchema"]
 from marshmallow_fastoneofschema.one_of_schema import OneOfSchema as FastOneOfSchema
+from marshmallow_fastoneofschema.one_of_schema import OneOfSchema as OneOfSchema

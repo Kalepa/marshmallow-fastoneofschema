@@ -1,8 +1,8 @@
-import os
 from enum import Enum
 
 import pytest
 from marshmallow import Schema, ValidationError, fields, post_load
+
 from marshmallow_fastoneofschema import OneOfSchema
 
 
@@ -125,7 +125,13 @@ def test_custom_hooks_and_non_string_keys():
             return Kind(v) if v is not None else None
 
         def get_obj_type(self, obj):  # custom
-            return Kind.DOG if isinstance(obj, Dog) else Kind.CAT if isinstance(obj, Cat) else None
+            return (
+                Kind.DOG
+                if isinstance(obj, Dog)
+                else Kind.CAT
+                if isinstance(obj, Cat)
+                else None
+            )
 
     h = Hooked()
     d = h.load({"k": 1, "name": "x"})

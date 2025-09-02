@@ -1,7 +1,10 @@
-from .one_of_schema import OneOfSchema  # noqa: F401
+from importlib.metadata import PackageNotFoundError, version
+
 from .one_of_schema import OneOfSchema as FastOneOfSchema
 
-from importlib.metadata import PackageNotFoundError, version
+__all__ = ["OneOfSchema", "FastOneOfSchema", "__version__"]
+
+from .one_of_schema import OneOfSchema as OneOfSchema
 
 try:
     __version__ = version("marshmallow-fastoneofschema")

@@ -1,5 +1,6 @@
 import pytest
 from marshmallow import Schema, ValidationError, fields
+
 from marshmallow_fastoneofschema import OneOfSchema
 
 
@@ -18,7 +19,7 @@ class U(OneOfSchema):
 def test_invalid_input_type():
     u = U()
     with pytest.raises(ValidationError) as ei:
-        u.load(["not", "a", "dict"])  # type: ignore[arg-type]
+        u.load(["not", "a", "dict"])
     assert "_schema" in ei.value.messages
 
 
