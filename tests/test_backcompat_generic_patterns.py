@@ -177,7 +177,6 @@ class SanitizingSchema(Schema):
 
 
 class SanitizingOneOf(OneOfSchema):
-    # Default type_field_remove=True ensures wrapper is used
     type_schemas = {"T": SanitizingSchema}
 
 

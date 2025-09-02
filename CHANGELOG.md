@@ -10,6 +10,7 @@
 ### Fixed
 - Do not overwrite a child-provided `type` field during `dump`.
 - Allow `@pre_load` hooks to mutate input when the type field is hidden.
+- Preserve and merge existing child schema context during dump/load to avoid losing data produced by hooks relying on context.
 
 ### Tests
 - Aded generic backward-compatibility tests.

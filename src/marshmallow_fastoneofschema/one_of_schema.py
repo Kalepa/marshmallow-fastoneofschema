@@ -53,17 +53,13 @@ class _HidingKeyDict(typing.MutableMapping[str, typing.Any]):
             if k != self._hide:
                 yield v
 
-    # Mutable operations
     def __setitem__(self, key: str, value: typing.Any) -> None:  # noqa: D401
-        # Allow write-through even for hidden key to preserve caller expectations
         self._data[key] = value
 
     def __delitem__(self, key: str) -> None:  # noqa: D401
-        # Deleting hidden key is allowed on underlying data
         del self._data[key]
 
     def clear(self) -> None:  # noqa: D401
-        # Remove everything, including hidden key if present
         self._data.clear()
 
     def update(self, *args, **kwargs) -> None:  # noqa: D401
@@ -231,14 +227,22 @@ class OneOfSchema(Schema):
                         else:
                             schema = type_schema()
                             self._foo_keepalive_append(schema)
-                    if hasattr(schema, "context"):
-                        src_ctx = getattr(self, "context", {})
-                        if schema.context != src_ctx:
-                            try:
-                                schema.context.clear()
-                            except Exception:
-                                schema.context = {}
-                            schema.context.update(src_ctx)
+                    src_ctx = getattr(self, "context", None)
+                    if not src_ctx:
+                        # Try marshmallow parent chain: Schema(parent=Field(parent=Schema))
+                        p = getattr(self, "parent", None)
+                        src_ctx = getattr(
+                            getattr(p, "parent", None), "context", None
+                        ) or getattr(p, "context", {})
+                    try:
+                        dst = getattr(schema, "context", None)
+                        if isinstance(dst, dict):
+                            if src_ctx:
+                                dst.update(src_ctx)
+                        else:
+                            schema.context = dict(src_ctx)
+                    except Exception:
+                        schema.context = dict(src_ctx)
                     batch = [o for (_, o) in items]
                     indices = [idx for (idx, _) in items]
                     try:
@@ -264,11 +268,9 @@ class OneOfSchema(Schema):
                                     results[i] = None
                                     handled = True
                             if not handled:
-                                # Try to fill valid data if provided
                                 if isinstance(vdata, list) and pos < len(vdata):
                                     results[i] = vdata[pos]
                         else:
-                            # Fallback: dump individually to recover per-item outcome
                             try:
                                 # items[pos] is (index, obj)
                                 _, obj_item = items[pos]
@@ -353,14 +355,21 @@ class OneOfSchema(Schema):
                 else:
                     schema = type_schema()
                     self._foo_keepalive_append(schema)
-        if hasattr(schema, "context"):
-            src_ctx = getattr(self, "context", {})
-            if schema.context != src_ctx:
-                try:
-                    schema.context.clear()
-                except Exception:
-                    schema.context = {}
-                schema.context.update(src_ctx)
+        src_ctx = getattr(self, "context", None)
+        if not src_ctx:
+            p = getattr(self, "parent", None)
+            src_ctx = getattr(getattr(p, "parent", None), "context", None) or getattr(
+                p, "context", {}
+            )
+        try:
+            dst = getattr(schema, "context", None)
+            if isinstance(dst, dict):
+                if src_ctx:
+                    dst.update(src_ctx)
+            else:
+                schema.context = dict(src_ctx)
+        except Exception:
+            schema.context = dict(src_ctx)
         result = schema.dump(obj, many=False, **kwargs)
         if result is not None and self.type_field not in result:
             result[self.type_field] = obj_type
@@ -455,14 +464,21 @@ class OneOfSchema(Schema):
                     else:
                         schema = type_schema()
                         self._foo_keepalive_append(schema)
-                if hasattr(schema, "context"):
-                    src_ctx = getattr(self, "context", {})
-                    if schema.context != src_ctx:
-                        try:
-                            schema.context.clear()
-                        except Exception:
-                            schema.context = {}
-                        schema.context.update(src_ctx)
+                src_ctx = getattr(self, "context", None)
+                if not src_ctx:
+                    p = getattr(self, "parent", None)
+                    src_ctx = getattr(
+                        getattr(p, "parent", None), "context", None
+                    ) or getattr(p, "context", {})
+                try:
+                    dst = getattr(schema, "context", None)
+                    if isinstance(dst, dict):
+                        if src_ctx:
+                            dst.update(src_ctx)
+                    else:
+                        schema.context = dict(src_ctx)
+                except Exception:
+                    schema.context = dict(src_ctx)
                 batch = []
                 indices = []
                 for idx, prepared in items:
