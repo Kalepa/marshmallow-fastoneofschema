@@ -1,0 +1,214 @@
+name: CI and Publish
+
+on:
+  push:
+    branches:
+      - "**"
+    tags:
+      - "v*"
+  pull_request:
+    branches:
+      - "**"
+
+jobs:
+  tests:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: "3.13", python: "3.13", tox: py313-marshmallow3 }
+          - { name: "3.13", python: "3.13", tox: py313-marshmallow4 }
+          - { name: "3.11", python: "3.11", tox: py311-marshmallow3 }
+          - { name: "3.11", python: "3.11", tox: py311-marshmallow4 }
+          - { name: "lowest", python: "3.11", tox: py311-lowest }
+          - { name: "dev", python: "3.13", tox: py313-marshmallowdev }
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python ${{ matrix.python }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Sync deps
+        run: uv sync
+
+      - name: Run tests
+        run: uv run tox -e${{ matrix.tox }}
+
+  lint-pre-release:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Sync deps
+        run: uv sync
+
+      - name: Run lint
+        run: uv run tox -e lint
+
+  build:
+    name: Build package
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Sync deps
+        run: uv sync
+
+      - name: Extract and validate version from tag
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME:-${GITHUB_REF##*/}}"
+          echo "Ref name: ${TAG}"
+          REGEX='^v(([0-9]+(?:\.[0-9]+)*)(?:(?:a|b|rc)[0-9]+)?(?:\.?dev[0-9]+)?(?:post[0-9]+)?)$'
+
+          VERSION=""
+          if [[ "$TAG" =~ $REGEX ]]; then
+            VERSION="${BASH_REMATCH[1]}"
+            echo "Derived version: ${VERSION}"
+          else
+            echo "Tag does not match version pattern."
+            exit 1
+          fi
+
+          PYPROJECT_VERSION=$(python - <<'PY'
+          import tomllib
+          with open('pyproject.toml','rb') as f:
+              data = tomllib.load(f)
+          print(data['project']['version'])
+          PY
+          )
+          echo "pyproject version: ${PYPROJECT_VERSION}"
+
+          if [[ "${PYPROJECT_VERSION}" != "${VERSION}" ]]; then
+            echo "Tag version (${VERSION}) does not match pyproject.toml version (${PYPROJECT_VERSION})."
+            exit 1
+          fi
+
+          PRERELEASE=false
+          if [[ "$VERSION" =~ (a|b|rc)[0-9]+ ]] || [[ "$VERSION" =~ \.?dev[0-9]+ ]]; then
+            PRERELEASE=true
+          fi
+
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "prerelease=${PRERELEASE}" >> "$GITHUB_OUTPUT"
+
+      - name: Build with uv
+        run: uv build
+
+      - name: Check build
+        run: uv run twine check --strict dist/*
+
+      - name: Store the distribution packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+  publish-to-pypi:
+    name: Publish and Release
+    needs: [build, tests, lint-pre-release]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/marshmallow-fastoneofschema
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - name: Download all the dists
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    name: GitHub Release
+    needs: [build, publish-to-pypi]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute changelog link
+        id: changelog
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION='${{ needs.build.outputs.version }}'
+          REPO='${{ github.repository }}'
+          FILE_URL="https://github.com/${REPO}/blob/main/CHANGELOG.md"
+          if [[ -f CHANGELOG.md ]]; then
+            if grep -Eq "id=\"v?${VERSION}\"|name=\"v?${VERSION}\"" CHANGELOG.md; then
+              if grep -q "id=\"v${VERSION}\"" CHANGELOG.md || grep -q "name=\"v${VERSION}\"" CHANGELOG.md; then
+                echo "url=${FILE_URL}#v${VERSION}" >> "$GITHUB_OUTPUT"
+              else
+                echo "url=${FILE_URL}#${VERSION}" >> "$GITHUB_OUTPUT"
+              fi
+            else
+
+              line=$(grep -nE "^##+ (\[)?v?${VERSION}(\])?( |$| - )" CHANGELOG.md | head -n1 | cut -d: -f1 || true)
+              if [[ -n "${line:-}" ]]; then
+                echo "url=${FILE_URL}#L${line}" >> "$GITHUB_OUTPUT"
+              else
+                echo "url=${FILE_URL}" >> "$GITHUB_OUTPUT"
+              fi
+            fi
+          else
+            echo "url=${FILE_URL}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: v${{ needs.build.outputs.version }}
+          body: "Changelog: ${{ steps.changelog.outputs.url }}"
+          prerelease: ${{ needs.build.outputs.prerelease }}
+          files: |
+            dist/*
