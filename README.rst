@@ -1,6 +1,6 @@
-=======================
+===========================
 marshmallow-FastOneOfSchema
-=======================
+===========================
 
 .. |marshmallow-support| image:: https://badgen.net/badge/marshmallow/3,4?list=1
     :target: https://marshmallow.readthedocs.io/en/latest/upgrading.html
