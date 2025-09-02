@@ -1,5 +1,12 @@
 # Changelog
 
+## 2025.9.2.1 [in development]
+### Changed
+- Versioning scheme changed to `year.month.day.increment`.
+
+### CI/CD
+- CI/CD pipeline modernized and refactored.
+
 ## 1.0.0 (2025-09-01)
 Initial fork release.
 
