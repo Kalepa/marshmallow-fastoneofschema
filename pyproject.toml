@@ -1,6 +1,6 @@
 [project]
 name = "marshmallow-fastoneofschema"
-version = "2025.9.2.1.dev3"
+version = "2025.9.2.1.dev4"
 description = "fast marshmallow multiplexing schema"
 readme = "README.rst"
 license = { file = "LICENSE" }
@@ -38,6 +38,7 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.sdist]
 include = [
   "src",
+  "assets",
   "tests",
   "CHANGELOG.md",
   "SECURITY.md",
@@ -52,12 +53,16 @@ packages = [
   "src/marshmallow_fastoneofschema",
   "src/marshmallow_oneofschema",
 ]
+force-include = { "assets/marshmallow_fastoneofschema.pth" = "marshmallow_fastoneofschema.pth" }
 
 [tool.hatch.envs.test]
 dependencies = ["pytest"]
 
 [project.entry-points."deepfriedmarshmallow.plugins"]
 marshmallow_fastoneofschema = "marshmallow_fastoneofschema.dfm_plugin:dfm_register"
+
+[project.entry-points."hatch.metadata.hooks"]
+obsoletes = "marshmallow_fastoneofschema._hatch_obsoletes:ObsoletesHook"
 
 [tool.ruff]
 src = ["src"]

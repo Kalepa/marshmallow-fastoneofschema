@@ -3,6 +3,7 @@
 ## 2025.9.2.1 [in development]
 ### Changed
 - Versioning scheme changed to `year.month.day.increment`.
+- Hardened upstream plugin overriding logic.
 
 ### CI/CD
 - CI/CD pipeline modernized and refactored.

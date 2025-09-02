@@ -1,0 +1,1 @@
+import marshmallow_fastoneofschema._pth_bootstrap as _mfos_pth; _mfos_pth.install()

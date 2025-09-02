@@ -35,6 +35,9 @@ pip::
 
     $ pip install marshmallow-fastoneofschema
 
+Note: If ``marshmallow-oneofschema`` remains installed alongside this fork, the library logs an error and uses the fast fork. For reliability, uninstall the upstream package to avoid any packaging/order surprises.
+This wheel also includes a small startup hook (``.pth``) that redirects imports of ``marshmallow_oneofschema`` to the fast fork, even if the upstream was installed later. You can disable this behavior by setting ``FASTONEOFSCHEMA_DISABLE_PTH=1``.
+
 Example
 -------
 
