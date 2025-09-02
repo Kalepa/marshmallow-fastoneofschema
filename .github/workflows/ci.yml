@@ -92,7 +92,7 @@ jobs:
           set -euo pipefail
           TAG="${GITHUB_REF_NAME:-${GITHUB_REF##*/}}"
           echo "Ref name: ${TAG}"
-          REGEX='^v(([0-9]+(?:\.[0-9]+)*)(?:(?:a|b|rc)[0-9]+)?(?:\.?dev[0-9]+)?(?:post[0-9]+)?)$'
+          REGEX='^v(([0-9]+(\.[0-9]+)*)(([ab]|rc)[0-9]+)?(\.?dev[0-9]+)?(\.?post[0-9]+)?)$'
 
           VERSION=""
           if [[ "$TAG" =~ $REGEX ]]; then
