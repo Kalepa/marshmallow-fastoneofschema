@@ -25,6 +25,13 @@ def install() -> None:
     target_sub = f"{target_root}.one_of_schema"
 
     try:
+        from ._bootstrap_common import warn_if_both_installed
+
+        warn_if_both_installed()
+    except Exception:
+        pass
+
+    try:
         from marshmallow_fastoneofschema import one_of_schema as _fast_mod
         from marshmallow_fastoneofschema.one_of_schema import OneOfSchema as _FastOneOf
     except Exception as exc:
