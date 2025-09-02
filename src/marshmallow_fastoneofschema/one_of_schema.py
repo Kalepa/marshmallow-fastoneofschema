@@ -222,7 +222,7 @@ class OneOfSchema(Schema):
                         dumped = schema.dump(batch, many=True, **kwargs)
                         for pos, i in enumerate(indices):
                             res = dumped[pos]
-                            if res is not None:
+                            if res is not None and self.type_field not in res:
                                 res[self.type_field] = tval
                             results[i] = res
                     except ValidationError as e:
@@ -244,17 +244,19 @@ class OneOfSchema(Schema):
                                 # Try to fill valid data if provided
                                 if isinstance(vdata, list) and pos < len(vdata):
                                     results[i] = vdata[pos]
-                                else:
-                                    # Fallback: validate individually to recover per-item outcome
-                                    try:
-                                        results[i] = schema.load(
-                                            items[pos],
-                                            many=False,
-                                            **kwargs,
-                                        )
-                                    except ValidationError as ee:
-                                        result_errors[i] = ee.messages
-                                        results[i] = getattr(ee, "valid_data", None)
+                        else:
+                            # Fallback: dump individually to recover per-item outcome
+                            try:
+                                # items[pos] is (index, obj)
+                                _, obj_item = items[pos]
+                                results[i] = schema.dump(
+                                    obj_item,
+                                    many=False,
+                                    **kwargs,
+                                )
+                            except ValidationError as ee:
+                                result_errors[i] = ee.messages
+                                results[i] = getattr(ee, "valid_data", None)
                 for i in range(len(obj)):
                     result_data.append(results[i])
         result = result_data
@@ -280,7 +282,9 @@ class OneOfSchema(Schema):
                 key = self._foo_resolve_type_key(obj_type)
                 type_schema = self.type_schemas.get(key) if key is not None else None
                 if not type_schema:
-                    return None, {"_schema": f"Unsupported object type: {obj_type}"}
+                    raise ValidationError(
+                        {"_schema": [f"Unsupported object type: {obj_type}"]}
+                    )
                 if isinstance(type_schema, Schema):
                     schema = type_schema
                 else:
@@ -301,13 +305,15 @@ class OneOfSchema(Schema):
         else:
             obj_type = self.get_obj_type(obj)
             if obj_type is None:
-                return None, {
-                    "_schema": f"Unknown object class: {obj.__class__.__name__}"
-                }
+                raise ValidationError(
+                    {"_schema": [f"Unknown object class: {obj.__class__.__name__}"]}
+                )
             key = self._foo_resolve_type_key(obj_type)
             type_schema = self.type_schemas.get(key) if key is not None else None
             if not type_schema:
-                return None, {"_schema": f"Unsupported object type: {obj_type}"}
+                raise ValidationError(
+                    {"_schema": [f"Unsupported object type: {obj_type}"]}
+                )
             if isinstance(type_schema, Schema):
                 schema = type_schema
             else:
@@ -333,7 +339,7 @@ class OneOfSchema(Schema):
                     schema.context = {}
                 schema.context.update(src_ctx)
         result = schema.dump(obj, many=False, **kwargs)
-        if result is not None:
+        if result is not None and self.type_field not in result:
             result[self.type_field] = obj_type
         return result
 
@@ -440,9 +446,17 @@ class OneOfSchema(Schema):
                     batch.append(prepared)
                     indices.append(idx)
                 try:
-                    loaded = schema.load(
-                        batch, many=True, partial=partial, unknown=unknown, **kwargs
-                    )
+                    child_kwargs = {"many": True}
+                    if partial is not None:
+                        child_kwargs["partial"] = partial
+                    # Propagate parent's unknown only when type field is kept on child input
+                    eff_unknown = unknown
+                    if eff_unknown is None and not self.type_field_remove:
+                        eff_unknown = self.unknown
+                    if eff_unknown is not None:
+                        child_kwargs["unknown"] = eff_unknown
+                    child_kwargs.update(kwargs)
+                    loaded = schema.load(batch, **child_kwargs)
                     for i, val in zip(indices, loaded, strict=False):
                         results[i] = val
                 except ValidationError as e:
@@ -484,10 +498,12 @@ class OneOfSchema(Schema):
                 and self.type_field in data
             ):
                 data = _HidingKeyDict(data, self.type_field)
-            unknown = unknown or self.unknown
+            else:
+                # If the type field remains, ensure child respects parent's unknown policy
+                if unknown is None:
+                    unknown = self.unknown
         else:
             data = dict(data)
-            unknown = unknown or self.unknown
             data_type = self.get_data_type(data)
         if data_type is None:
             raise ValidationError(
@@ -527,7 +543,13 @@ class OneOfSchema(Schema):
                 except Exception:
                     schema.context = {}
                 schema.context.update(src_ctx)
-        return schema.load(data, many=False, partial=partial, unknown=unknown, **kwargs)
+        child_kwargs = {"many": False}
+        if partial is not None:
+            child_kwargs["partial"] = partial
+        if unknown is not None:
+            child_kwargs["unknown"] = unknown
+        child_kwargs.update(kwargs)
+        return schema.load(data, **child_kwargs)
 
     def validate(self, data, *, many=None, partial=None):
         try:

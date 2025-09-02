@@ -4,6 +4,14 @@
 ### Changed
 - Versioning scheme changed to `year.month.day.increment`.
 - Hardened upstream plugin overriding logic.
+- Unsupported/unknown types produce upstream-like `ValidationError` messages.
+- `many=True` dump fallback now dumps individual items to recover valid outputs.
+
+### Fixed
+- Do not overwrite a child-provided `type` field during `dump`.
+
+### Tests
+- Aded generic backward-compatibility tests.
 
 ### CI/CD
 - CI/CD pipeline modernized and refactored.
