@@ -296,10 +296,18 @@ class OneOfSchema(Schema):
         default_getter = (
             getattr(self.get_obj_type, "__func__", None) is OneOfSchema.get_obj_type
         )
+        schema = None
+        reuse = False
         if default_getter:
+            # Reuse a cached child instance only when aggressive mode is on
+            # and context isolation is off; otherwise pick one on every call.
+            reuse = (
+                not self._foo_context_isolation_enabled()
+                and self._foo_aggressive_enabled()
+            )
             if self._foo_dump_cache is None:
                 self._foo_dump_cache = {}
-            entry = self._foo_dump_cache.get(obj.__class__)
+            entry = self._foo_dump_cache.get(obj.__class__) if reuse else None
             if entry is not None:
                 obj_type, schema = entry
             else:
@@ -310,23 +318,6 @@ class OneOfSchema(Schema):
                     raise ValidationError(
                         {"_schema": [f"Unsupported object type: {obj_type}"]}
                     )
-                if isinstance(type_schema, Schema):
-                    schema = type_schema
-                else:
-                    if self._foo_context_isolation_enabled():
-                        schema = type_schema()
-                        self._foo_keepalive_append(schema)
-                    elif self._foo_aggressive_enabled():
-                        cache = self._foo_get_instance_cache()
-                        schema = cache.get(obj_type)
-                        if schema is None:
-                            schema = type_schema()
-                            self._foo_keepalive_append(schema)
-                            cache[obj_type] = schema
-                    else:
-                        schema = type_schema()
-                        self._foo_keepalive_append(schema)
-                self._foo_dump_cache[obj.__class__] = (obj_type, schema)
         else:
             obj_type = self.get_obj_type(obj)
             if obj_type is None:
@@ -339,6 +330,7 @@ class OneOfSchema(Schema):
                 raise ValidationError(
                     {"_schema": [f"Unsupported object type: {obj_type}"]}
                 )
+        if schema is None:
             if isinstance(type_schema, Schema):
                 schema = type_schema
             else:
@@ -355,6 +347,8 @@ class OneOfSchema(Schema):
                 else:
                     schema = type_schema()
                     self._foo_keepalive_append(schema)
+            if reuse:
+                self._foo_dump_cache[obj.__class__] = (obj_type, schema)
         src_ctx = getattr(self, "context", None)
         if not src_ctx:
             p = getattr(self, "parent", None)
