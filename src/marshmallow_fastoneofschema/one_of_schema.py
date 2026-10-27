@@ -252,36 +252,18 @@ class OneOfSchema(Schema):
                             if res is not None and self.type_field not in res:
                                 res[self.type_field] = tval
                             results[i] = res
-                    except ValidationError as e:
-                        msgs = e.messages
-                        vdata = getattr(e, "valid_data", None)
-                        for pos, i in enumerate(indices):
-                            handled = False
-                            if isinstance(msgs, dict):
-                                if pos in msgs and msgs[pos]:
-                                    result_errors[i] = msgs[pos]
-                                    results[i] = None
-                                    handled = True
-                            elif isinstance(msgs, list):
-                                if pos < len(msgs) and msgs[pos]:
-                                    result_errors[i] = msgs[pos]
-                                    results[i] = None
-                                    handled = True
-                            if not handled:
-                                if isinstance(vdata, list) and pos < len(vdata):
-                                    results[i] = vdata[pos]
-                        else:
+                    except ValidationError:
+                        # A batch dump error does not say which item failed, so
+                        # dump each item on its own to keep the good ones.
+                        for i, obj_item in items:
                             try:
-                                # items[pos] is (index, obj)
-                                _, obj_item = items[pos]
-                                results[i] = schema.dump(
-                                    obj_item,
-                                    many=False,
-                                    **kwargs,
-                                )
+                                res = schema.dump(obj_item, many=False, **kwargs)
+                                if res is not None and self.type_field not in res:
+                                    res[self.type_field] = tval
+                                results[i] = res
                             except ValidationError as ee:
-                                result_errors[i] = ee.messages
-                                results[i] = getattr(ee, "valid_data", None)
+                                result_errors[i] = ee.normalized_messages()
+                                results[i] = ee.valid_data
                 for i in range(len(obj)):
                     result_data.append(results[i])
         result = result_data
