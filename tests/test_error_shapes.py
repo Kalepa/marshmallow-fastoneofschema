@@ -71,3 +71,23 @@ def test_unsupported_type_single():
         u.load({"type": "C", "x": 1})
     msgs = ei.value.messages
     assert "type" in msgs and "Unsupported value" in msgs["type"][0]
+
+
+@pytest.mark.parametrize("bad", [None, "str", 5])
+def test_non_dict_item_many(bad):
+    u = U()
+    with pytest.raises(ValidationError) as ei:
+        u.load([{"type": "A", "x": 1}, bad], many=True)
+    assert ei.value.messages == {1: {"_schema": f"Invalid data type: {bad}"}}
+    assert ei.value.valid_data[0] == {"x": 1}
+
+
+@pytest.mark.parametrize("bad", [None, "str", 5])
+def test_non_dict_item_many_custom_get_data_type(bad):
+    class Custom(U):
+        def get_data_type(self, data):
+            return super().get_data_type(data)
+
+    with pytest.raises(ValidationError) as ei:
+        Custom().load([{"type": "A", "x": 1}, bad], many=True)
+    assert ei.value.messages == {1: {"_schema": f"Invalid data type: {bad}"}}

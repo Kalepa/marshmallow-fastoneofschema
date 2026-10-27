@@ -400,6 +400,10 @@ class OneOfSchema(Schema):
                 is OneOfSchema.get_data_type
             )
             for idx, item in enumerate(data):
+                if not isinstance(item, dict):
+                    result_errors[idx] = {"_schema": f"Invalid data type: {item}"}
+                    results[idx] = None
+                    continue
                 if default_getter:
                     tval = item.get(self.type_field)
                     if (
